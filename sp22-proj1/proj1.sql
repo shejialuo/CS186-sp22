@@ -97,46 +97,106 @@ AS
 -- Question 3i
 CREATE VIEW q3i(playerid, namefirst, namelast, yearid, slg)
 AS
-  SELECT 1, 1, 1, 1, 1 -- replace this line
+  WITH bat_with_slg AS (
+    SELECT playerID AS playerId, yearID,
+          (H + H2B + 2* H3B + 3 * HR) / CAST(AB AS FLOAT) AS slg
+    FROM batting
+    WHERE AB > 50
+  )
+  SELECT T.playerId, T.nameFirst, T.nameLast, T.yearID, T.slg
+  FROM ((SELECT playerId, nameFirst, nameLast FROM people) NATURAL JOIN bat_with_slg) AS T
+  ORDER BY T.slg DESC, T.yearID ASC, T.playerId ASC
+  LIMIT 10
 ;
 
 -- Question 3ii
 CREATE VIEW q3ii(playerid, namefirst, namelast, lslg)
 AS
-  SELECT 1, 1, 1, 1 -- replace this line
+  WITH bat_group_with_id AS (
+    SELECT playerID AS playerId,
+           (SUM(H) + SUM(H2B) + 2* SUM(H3B) + 3 * SUM(HR)) / CAST(SUM(AB) AS FLOAT) AS lslg
+    FROM batting
+    GROUP BY playerID
+    HAVING SUM(AB) > 50
+  )
+  SELECT T.playerId, T.nameFirst, T.nameLast, T.lslg
+  FROM ((SELECT playerId, nameFirst, nameLast FROM people) NATURAL JOIN bat_group_with_id) AS T
+  ORDER BY T.lslg DESC, T.playerId ASC
+  LIMIT 10
 ;
 
 -- Question 3iii
 CREATE VIEW q3iii(namefirst, namelast, lslg)
 AS
-  SELECT 1, 1, 1 -- replace this line
+  WITH bat_group_with_id AS (
+    SELECT playerID AS playerId,
+           (SUM(H) + SUM(H2B) + 2* SUM(H3B) + 3 * SUM(HR)) / CAST(SUM(AB) AS FLOAT) AS lslg
+    FROM batting
+    GROUP BY playerID
+    HAVING SUM(AB) > 50
+  )
+  SELECT T.nameFirst, T.nameLast, T.lslg
+  FROM ((SELECT playerId, nameFirst, nameLast FROM people) NATURAL JOIN bat_group_with_id) AS T
+  WHERE T.lslg > (SELECT lslg FROM bat_group_with_id WHERE playerID = 'mayswi01')
+  ORDER BY T.lslg DESC, T.playerId ASC
 ;
 
 -- Question 4i
 CREATE VIEW q4i(yearid, min, max, avg)
 AS
-  SELECT 1, 1, 1, 1 -- replace this line
+  SELECT yearID, MIN(salary), MAX(salary), AVG(salary)
+  FROM salaries
+  GROUP BY yearID
+  ORDER BY yearID ASC
 ;
 
 -- Question 4ii
 CREATE VIEW q4ii(binid, low, high, count)
 AS
-  SELECT 1, 1, 1, 1 -- replace this line
+  WITH bins_statistics(binid, binstart, width) AS (
+    SELECT MIN(salary), MAX(salary), CAST (((MAX(salary) - MIN(salary))/10) AS INT)
+    FROM salaries
+  ), bins(binid, binstart, width) AS (
+    SELECT CAST ((salary/width) AS INT), binstart, width
+    FROM salaries, bins_statistics
+    WHERE yearid = 2016
+  )
+
+  SELECT binid, 507500.0 + binid * 3249250,3756750.0 + binid * 3249250, count(*)
+  FROM binids, salaries
+  WHERE (salary BETWEEN 507500.0 + binid*3249250 AND 3756750.0 + binid * 3249250 ) AND yearID='2016'
+  GROUP BY binid
 ;
 
 -- Question 4iii
 CREATE VIEW q4iii(yearid, mindiff, maxdiff, avgdiff)
 AS
-  SELECT 1, 1, 1, 1 -- replace this line
+  SELECT q4i2.yearid, q4i2.min - q4i1.min,
+         q4i2.max - q4i1.max, q4i2.avg - q4i1.avg
+  FROM q4i AS q4i1, q4i AS q4i2
+  WHERE q4i1.yearid + 1 = q4i2.yearid
 ;
 
 -- Question 4iv
 CREATE VIEW q4iv(playerid, namefirst, namelast, salary, yearid)
 AS
-  SELECT 1, 1, 1, 1, 1 -- replace this line
+  WITH max_2020_and_2021 AS (
+    SELECT yearID, playerID, MAX(salary) AS maxSalary
+    FROM salaries
+    GROUP BY yearID
+    HAVING yearID = 2000 OR yearID = 2001
+  )
+  SELECT people.playerId, nameFirst, nameLast, maxSalary, yearID
+  FROM people, max_2020_and_2021
+  WHERE people.playerId = max_2020_and_2021.playerID
 ;
 -- Question 4v
-CREATE VIEW q4v(team, diffAvg) AS
-  SELECT 1, 1 -- replace this line
+CREATE VIEW q4v(team, diffAvg)
+AS
+  SELECT allstarfull.teamID, MAX(salary) - MIN(salary)
+  FROM salaries, allstarfull
+  WHERE salaries.yearID = 2016 AND salaries.playerID = allstarfull.playerID
+        AND allstarfull.yearID = 2016
+  GROUP BY allstarfull.teamID
 ;
 
